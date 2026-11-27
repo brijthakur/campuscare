@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}{{ issue.ticket_code }} · CampusCare{% endblock %}
+{% block content %}
+<a class="small text-decoration-none" href="{{ url_for('dashboard') }}">← Back to dashboard</a>
+<header class="page-heading mt-3">
+  <div>
+    <span class="eyebrow">{{ issue.ticket_code }} · {{ issue.category }}</span>
+    <h1 class="page-title">{{ issue.title }}</h1>
+    <p class="page-subtitle">Reported by {{ issue.reporter }} on {{ issue.created_at|localtime("%d %b %Y, %I:%M %p") }}</p>
+  </div>
+  <div class="d-flex flex-wrap gap-2">
+    <span class="status-badge status-{{ issue.status|lower|replace(' ', '-') }}">{{ issue.status }}</span>
+    <span class="priority-badge priority-{{ issue.priority|lower }}">{{ issue.priority }} priority</span>
+  </div>
+</header>
+
+<div class="row g-4">
+  <div class="col-lg-7">
+    <section class="panel mb-4">
+      <div class="panel-heading"><h2 class="panel-title">Issue progress</h2><span class="urgency-badge urgency-{{ (issue|urgency)|lower|replace(' ', '-') }}" {% if issue.status not in ['Resolved', 'Closed'] %}data-countdown="{{ issue.due_at }}"{% endif %}>{% if issue.status in ['Resolved', 'Closed'] %}Completed{% else %}{{ countdown_for(issue.due_at) }}{% endif %}</span></div>
+      {% set progress_index = {'Pending': 0, 'Reopened': 0, 'In Progress': 1, 'Resolved': 2, 'Closed': 3}.get(issue.status, 0) %}
+      <div class="progress-stepper" aria-label="Issue status progress">
+        {% for step in ['Pending', 'In progress', 'Resolved', 'Closed'] %}
+          <div class="progress-step {% if loop.index0 <= progress_index %}is-complete{% endif %}"><span>{% if loop.index0 < progress_index %}✓{% else %}{{ loop.index }}{% endif %}</span>{{ step }}</div>
+        {% endfor %}
+      </div>
+      {% if issue.status == 'Reopened' %}<div class="alert alert-warning py-2 small mb-0">This issue has been reopened and needs attention.</div>{% endif %}
+    </section>
+
+    <section class="panel mb-4">
+      <div class="panel-heading"><h2 class="panel-title">What’s happening</h2></div>
+      <p class="issue-description mb-3">{{ issue.description }}</p>
+      <div class="issue-info-grid">
+        <div class="issue-info"><span>Location</span><strong>{{ issue.location or 'Not specified' }}</strong></div>
+        <div class="issue-info"><span>Assigned staff</span><strong>{{ issue.assignee or 'Not assigned yet' }}</strong></div>
+        <div class="issue-info"><span>Due by</span><strong>{{ issue.due_at|localtime }}</strong></div>
+        <div class="issue-info"><span>Category</span><strong>{{ issue.category }}</strong></div>
+      </div>
+      {% if issue.resolved_at %}<p class="small text-secondary mb-1">Resolved {{ issue.resolved_at|localtime }}</p>{% endif %}
+      {% if issue.closed_at %}<p class="small text-secondary mb-0">Closed {{ issue.closed_at|localtime }}</p>{% endif %}
+      {% if attachments %}
+        <hr class="my-4">
+        <h3 class="h6 fw-bold mb-3">Attachments</h3>
+        <div class="row g-3">
+          {% for attachment in attachments %}
+            <div class="col-sm-6">
+              {% if attachment.mime_type.startswith('image/') %}
+                <a class="d-block text-decoration-none" href="{{ url_for('uploaded_file', filename=attachment.stored_filename) }}" target="_blank" rel="noopener">
+                  <img class="issue-photo w-100" src="{{ url_for('uploaded_file', filename=attachment.stored_filename) }}" alt="{{ attachment.original_filename }}">
+                </a>
+              {% elif attachment.mime_type.startswith('video/') %}
+                <video class="issue-video w-100" controls preload="metadata">
+                  <source src="{{ url_for('uploaded_file', filename=attachment.stored_filename) }}" type="{{ attachment.mime_type }}">
+                </video>
+              {% else %}
+                <a class="d-block text-decoration-none" href="{{ url_for('uploaded_file', filename=attachment.stored_filename) }}" target="_blank" rel="noopener">
+                  <span class="panel d-block">{{ attachment.original_filename }}</span>
+                </a>
+              {% endif %}
+              <span class="issue-meta">{{ attachment.original_filename }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    </section>
+
+    <section class="panel">
+      <div class="panel-heading"><h2 class="panel-title">Issue history</h2><span class="text-secondary small">{{ history|length }} updates</span></div>
+      {% if history %}
+        <div class="timeline">
+          {% for event in history %}
+            <article class="timeline-item">
+              <div class="timeline-heading"><strong>{{ event.new_status }}{% if event.old_status and event.old_status != event.new_status %} · from {{ event.old_status }}{% endif %}</strong><time>{{ event.created_at|localtime }}</time></div>
+              {% if event.previous_staff_id != event.new_staff_id %}<p class="mb-1">Assignment updated{% if event.new_staff %} to {{ event.new_staff }}{% elif event.new_staff_id %} to staff member #{{ event.new_staff_id }}{% else %} to unassigned{% endif %}.</p>{% endif %}
+              {% if event.remarks %}<p class="mb-1">{{ event.remarks }}</p>{% endif %}
+              <small class="text-secondary">By {{ event.author or 'CampusCare' }}</small>
+            </article>
+          {% endfor %}
+        </div>
+      {% else %}<div class="empty-state py-4"><p class="mb-0">Updates will appear here as your issue moves forward.</p></div>{% endif %}
+    </section>
+  </div>
+
+  <aside class="col-lg-5">
+    {% if current_user.role == 'admin' %}
+      <section class="panel mb-4">
+        <div class="panel-heading"><div><span class="eyebrow">Administrator</span><h2 class="panel-title mt-1">Manage this issue</h2></div></div>
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('admin_update_issue', issue_id=issue.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-3"><label class="form-label" for="assigned_to">Assign to staff</label><select class="form-select" id="assigned_to" name="assigned_to"><option value="">Unassigned</option>{% for person in staff %}<option value="{{ person.id }}" {% if issue.assigned_staff_id == person.id %}selected{% endif %}>{{ person.name }}{% if person.department %} · {{ person.department }}{% endif %}</option>{% endfor %}</select></div>
+          <div class="row g-3">
+            <div class="col-sm-6"><label class="form-label" for="priority">Priority</label><select class="form-select" id="priority" name="priority">{% for priority in priorities %}<option value="{{ priority }}" {% if issue.priority == priority %}selected{% endif %}>{{ priority }}</option>{% endfor %}</select></div>
+            <div class="col-sm-6"><label class="form-label" for="status">Status</label><select class="form-select" id="status" name="status">{% for status in statuses if status != 'Reopened' or status == issue.status %}<option value="{{ status }}" {% if issue.status == status %}selected{% endif %}>{{ status }}</option>{% endfor %}</select></div>
+          </div>
+          <div class="row g-3 mt-1">
+            <div class="col-sm-6"><label class="form-label" for="proof_photo_admin">Resolution photo proof</label><input class="form-control" id="proof_photo_admin" name="proof_photo" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" capture="environment"><div class="form-help">Required when marking resolved · JPG, PNG or WebP · up to 3 MB.</div></div>
+            <div class="col-sm-6"><label class="form-label" for="proof_video_admin">Resolution video proof</label><input class="form-control" id="proof_video_admin" name="proof_video" type="file" accept=".mp4,.webm,.mov,video/mp4,video/webm,video/quicktime" capture="environment"><div class="form-help">Required when marking resolved · MP4, WebM or MOV · up to 50 MB.</div></div>
+          </div>
+          <div class="mt-3 mb-3">
+            <label class="form-label" for="due_at">Custom deadline <span class="text-secondary fw-normal">(Asia/Kolkata)</span></label>
+            <div class="form-check mb-2"><input class="form-check-input" id="custom_due_enabled" name="custom_due_enabled" type="checkbox" data-custom-deadline-toggle><label class="form-check-label small" for="custom_due_enabled">Set a manual deadline</label></div>
+            <input class="form-control deadline-input" id="due_at" name="due_at" type="datetime-local" value="{{ issue.due_at|datetime_input }}" disabled data-custom-deadline-input>
+            <div class="form-help">Changing priority recalculates the SLA deadline unless you enable a custom deadline.</div>
+          </div>
+          <div class="mb-3"><label class="form-label" for="note">Update or remarks</label><textarea class="form-control" id="note" name="note" rows="3" maxlength="1000" data-count-target="#note-count" placeholder="Share a decision or update."></textarea><span class="character-count" id="note-count"></span></div>
+          <button class="btn btn-primary w-100" type="submit">Save issue updates</button>
+        </form>
+      </section>
+    {% elif current_user.role == 'staff' and issue.assigned_staff_id == current_user.id and issue.status != 'Closed' %}
+      <section class="panel mb-4">
+        <div class="panel-heading"><div><span class="eyebrow">Assigned to you</span><h2 class="panel-title mt-1">Update progress</h2></div></div>
+        <form method="post" enctype="multipart/form-data" action="{{ url_for('staff_update_issue', issue_id=issue.id) }}">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="mb-3"><label class="form-label" for="status">New status</label><select class="form-select" id="status" name="status">{% for status in ['In Progress', 'Resolved'] %}<option value="{{ status }}" {% if issue.status == status %}selected{% endif %}>{{ status }}</option>{% endfor %}</select></div>
+          <div class="mb-3"><label class="form-label" for="proof_photo">Resolution photo proof</label><input class="form-control" id="proof_photo" name="proof_photo" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" capture="environment"><div class="form-help">Required when marking resolved · JPG, PNG or WebP · up to 3 MB.</div></div>
+          <div class="mb-3"><label class="form-label" for="proof_video">Resolution video proof</label><input class="form-control" id="proof_video" name="proof_video" type="file" accept=".mp4,.webm,.mov,video/mp4,video/webm,video/quicktime" capture="environment"><div class="form-help">Required when marking resolved · MP4, WebM or MOV · up to 50 MB.</div></div>
+          <div class="mb-3"><label class="form-label" for="note">Work notes or resolution</label><textarea class="form-control" id="note" name="note" rows="4" maxlength="1000" data-count-target="#note-count" placeholder="What have you done? What should the reporter know?"></textarea><span class="character-count" id="note-count"></span></div>
+          <button class="btn btn-primary w-100" type="submit">Save progress</button>
+        </form>
+      </section>
+    {% elif current_user.role == 'staff' and issue.assigned_staff_id == current_user.id and issue.status == 'Closed' %}
+      <section class="panel mb-4"><h2 class="panel-title">Issue closed</h2><p class="text-secondary mt-2 mb-0">An administrator must reopen this issue before further staff updates can be recorded.</p></section>
+    {% else %}
+      <section class="panel mb-4"><span class="eyebrow">Next step</span><h2 class="panel-title mt-1">Your campus team is on it</h2><p class="text-secondary mt-2 mb-0">You’ll see new assignments and progress in the issue history. We’ll let you know when the issue is resolved.</p></section>
+    {% endif %}
+    {% if current_user.role == 'student' and issue.status in ['Resolved', 'Closed'] %}
+      <section class="panel mb-4" id="rate-fix">
+        <span class="eyebrow">How did we do?</span><h2 class="panel-title mt-1">Rate the fix</h2>
+        {% if issue.rating %}<p class="text-secondary mt-2 mb-2">Your rating: {{ issue.rating }} / 5{% if issue.feedback %} · {{ issue.feedback }}{% endif %}</p>{% else %}
+          <form method="post" action="{{ url_for('rate_issue', issue_id=issue.id) }}" class="mt-3">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+            <fieldset class="mb-3"><legend class="form-label">Your rating</legend><div class="rating-stars">
+              {% for value in range(1, 6) %}<input id="rating-{{ value }}" name="rating" type="radio" value="{{ value }}" required><label for="rating-{{ value }}" aria-label="{{ value }} star{% if value != 1 %}s{% endif %}">★</label>{% endfor %}
+            </div></fieldset>
+            <div class="mb-3"><label class="form-label" for="feedback">Feedback <span class="text-secondary fw-normal">(optional)</span></label><textarea class="form-control" id="feedback" name="feedback" rows="3" maxlength="1000"></textarea></div>
+            <button class="btn btn-primary w-100" type="submit">Send feedback</button>
+          </form>
+        {% endif %}
+        {% if can_reopen %}<form method="post" action="{{ url_for('reopen_issue', issue_id=issue.id) }}" class="mt-3"><input type="hidden" name="csrf_token" value="{{ csrf_token() }}"><label class="form-label" for="reopen_reason">Why is it not solved?</label><textarea class="form-control" id="reopen_reason" name="reason" rows="3" maxlength="1000" required placeholder="Tell the campus team what still needs attention."></textarea><button class="btn btn-outline-primary w-100 mt-3" type="submit">Not solved</button></form>{% endif %}
+      </section>
+    {% endif %}
+    {% if current_user.role in ['student', 'admin'] or (current_user.role == 'staff' and issue.assigned_staff_id == current_user.id) %}
+      <section class="panel">
+        <h2 class="panel-title">Add a comment</h2>
+        <form method="post" action="{{ url_for('add_issue_remark', issue_id=issue.id) }}" class="mt-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <label class="form-label" for="comment">Message to the issue team</label>
+          <textarea class="form-control" id="comment" name="note" rows="3" maxlength="1000" required placeholder="Add relevant information or ask a question."></textarea>
+          <button class="btn btn-outline-primary btn-sm mt-3" type="submit">Add comment</button>
+        </form>
+      </section>
+    {% endif %}
+  </aside>
+</div>
+{% endblock %}

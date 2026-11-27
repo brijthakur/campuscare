@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} · CampusCare{% endblock %}
+{% block content %}
+<section class="error-card">
+  <span class="error-code">ERROR {{ code }}</span>
+  <h1>{{ title }}</h1>
+  <p>{{ message }}</p>
+  <div class="d-flex flex-wrap justify-content-center gap-2 mt-4">
+    <a class="btn btn-primary px-4" href="{{ url_for('index') }}">Go to home</a>
+    {% if current_user %}<a class="btn btn-light" href="{{ url_for('dashboard') }}">Open dashboard</a>{% else %}<a class="btn btn-light" href="{{ url_for('login') }}">Sign in</a>{% endif %}
+  </div>
+</section>
+{% endblock %}

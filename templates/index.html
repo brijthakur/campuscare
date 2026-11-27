@@ -1,0 +1,74 @@
+{% extends "base.html" %}
+{% block title %}CampusCare · A better-maintained campus{% endblock %}
+{% block content %}
+<section class="hero">
+  <div class="row align-items-center g-4">
+    <div class="col-lg-7 hero-content">
+      <span class="hero-kicker"><span></span> A calmer way to care for campus</span>
+      <h1>Better spaces.<br>Better campus days.</h1>
+      <p>One clear place to report maintenance issues, follow progress, and help your campus team get the right fixes done.</p>
+      <div class="d-flex flex-wrap gap-2 mt-4">
+        <a class="btn btn-primary px-4 py-2" href="{{ url_for('register') }}">Report an issue <span aria-hidden="true">→</span></a>
+        <a class="btn btn-light px-4 py-2" href="{{ url_for('login') }}">Sign in</a>
+      </div>
+      <div class="d-flex align-items-center gap-2 mt-4 text-secondary small">
+        <span class="text-success fw-bold" aria-hidden="true">✓</span> Track every report from submission to resolution
+      </div>
+    </div>
+    <div class="col-lg-5">
+      <div class="hero-visual" aria-label="Example maintenance issue progress">
+        <div class="d-flex justify-content-between align-items-center mb-2"><strong class="small">Campus requests</strong><span class="status-badge status-in-progress">Active</span></div>
+        <div class="hero-ticket">
+          <div class="hero-ticket-top"><span>CC-2026-0481</span><span>Today · 9:42 AM</span></div>
+          <strong>Library study room lighting</strong>
+          <div class="d-flex justify-content-between small text-secondary mb-2"><span>In progress</span><span>Assigned</span></div>
+          <div class="hero-mini-progress"><span style="width: 68%"></span></div>
+        </div>
+        <div class="hero-ticket">
+          <div class="hero-ticket-top"><span>CC-2026-0479</span><span>Yesterday</span></div>
+          <strong>Water fountain near the west entrance</strong>
+          <div class="d-flex justify-content-between small text-secondary mb-2"><span>Resolved</span><span>Complete</span></div>
+          <div class="hero-mini-progress"><span style="width: 100%"></span></div>
+        </div>
+        <div class="d-flex align-items-center gap-2 mt-3 small text-secondary"><span class="text-success fw-bold">●</span> Your campus team is on it</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="how-it-works" class="steps-section">
+  <div class="section-heading">
+    <span class="eyebrow">From report to resolution</span>
+    <h2>One simple workflow for everyone</h2>
+    <p>Students, administrators, and maintenance staff stay in sync at every step.</p>
+  </div>
+  <div class="row g-4">
+    {% for number, title, copy in [
+      ('01', 'Report', 'Tell us what needs attention. Add a location and photo so the right team can find it.'),
+      ('02', 'Assign', 'Administrators review requests, set priority, and route work to the right staff.'),
+      ('03', 'Fix', 'Maintenance staff share progress and resolution notes as work moves forward.'),
+      ('04', 'Track', 'Follow the complete timeline and know when your issue is ready for review.')
+    ] %}
+      <div class="col-sm-6 col-lg-3"><article class="workflow-step"><span class="workflow-number">{{ number }}</span><div><h3>{{ title }}</h3><p class="mb-0">{{ copy }}</p></div></article></div>
+    {% endfor %}
+  </div>
+</section>
+
+<section id="features" class="mb-5">
+  <div class="section-heading">
+    <span class="eyebrow">Built for campus teams</span>
+    <h2>Less chasing. More fixing.</h2>
+    <p>CampusCare turns scattered maintenance requests into clear ownership and measurable progress.</p>
+  </div>
+  <div class="row g-3">
+    <div class="col-md-6 col-lg-3"><article class="feature-card"><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6l-8-3Z"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></span><h3>Clear ownership</h3><p>Every request has a visible status, assigned team member, and accountable next step.</p></article></div>
+    <div class="col-md-6 col-lg-3"><article class="feature-card"><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><h3>Deadline awareness</h3><p>Priority-based deadlines help teams see urgent work before it slips through.</p></article></div>
+    <div class="col-md-6 col-lg-3"><article class="feature-card"><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v12H8l-4 3V5Z"/><path d="M8 9h8M8 13h5"/></svg></span><h3>Useful updates</h3><p>Students and staff share progress in one complete, easy-to-follow issue history.</p></article></div>
+    <div class="col-md-6 col-lg-3"><article class="feature-card"><span class="feature-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V5m0 14h17"/><path d="m7 15 4-4 3 2 6-7"/></svg></span><h3>Better visibility</h3><p>Administrators see workload, response times, and the health of campus operations.</p></article></div>
+  </div>
+</section>
+<section class="panel d-flex flex-wrap align-items-center justify-content-between gap-3">
+  <div><span class="eyebrow">Ready to make a difference?</span><h2 class="h4 mt-2 mb-1">Your report helps make campus better.</h2><p class="text-secondary mb-0">Sign in or create a student account to get started.</p></div>
+  <div class="d-flex flex-wrap gap-2"><a class="btn btn-outline-primary" href="{{ url_for('login') }}">Sign in</a><a class="btn btn-primary" href="{{ url_for('register') }}">Report an issue</a></div>
+</section>
+{% endblock %}

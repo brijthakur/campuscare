@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}{{ current_user.role|title }} dashboard · CampusCare{% endblock %}
+{% block content %}
+<header class="page-heading">
+  <div>
+    <span class="eyebrow">{{ current_user.role|title }} workspace</span>
+    <h1 class="page-title">{% if current_user.role == 'staff' %}My task queue{% elif current_user.role == 'admin' %}Operations dashboard{% else %}Issue dashboard{% endif %}</h1>
+    <p class="page-subtitle">
+      {% if current_user.role == 'admin' %}A live view of campus maintenance and team workload.
+      {% elif current_user.role == 'staff' %}Your assigned work, ordered by the next deadline.
+      {% else %}Follow every request you’ve made and see what happens next.{% endif %}
+    </p>
+  </div>
+  {% if current_user.role == 'student' %}
+    <a class="btn btn-primary px-3 py-2" href="{{ url_for('new_issue') }}">＋ Report an issue</a>
+  {% endif %}
+</header>
+
+{% if current_user.role == 'student' %}
+  <section class="dashboard-grid" aria-label="Your issue summary">
+    {% for label, icon in [('Total', '◷'), ('Open', '↗'), ('Resolved', '✓')] %}
+      <article class="stat-card">
+        <div class="stat-label"><span>{{ label }} issues</span><span class="stat-icon" aria-hidden="true">{{ icon }}</span></div>
+        <strong class="stat-value">{{ counts[label] }}</strong>
+      </article>
+    {% endfor %}
+  </section>
+{% elif current_user.role == 'admin' %}
+  <section class="dashboard-grid admin-kpis" aria-label="Campus issue KPIs">
+    {% for label, value, tone in [
+      ('Total', counts['Total'], ''),
+      ('Pending', counts.get('Pending', 0), 'tone-amber'),
+      ('In progress', counts.get('In Progress', 0), 'tone-blue'),
+      ('Resolved', counts.get('Resolved', 0), ''),
+      ('Closed', counts.get('Closed', 0), ''),
+      ('Overdue', counts['Overdue'], 'tone-red'),
+      ('Due soon', counts['Due soon'], 'tone-amber'),
+      ('Unassigned', counts['Unassigned'], 'tone-blue')
+    ] %}
+      <article class="stat-card {{ tone }}">
+        <div class="stat-label"><span>{{ label }}</span><span class="stat-icon" aria-hidden="true">•</span></div>
+        <strong class="stat-value">{{ value }}</strong>
+      </article>
+    {% endfor %}
+  </section>
+  <section class="row g-3 mb-4" aria-label="Service quality metrics">
+    <div class="col-sm-6"><div class="panel d-flex justify-content-between align-items-center h-100"><div><span class="eyebrow">On-time resolution</span><div class="h4 mt-2 mb-0">{{ counts['On time %'] }}%</div></div><span class="stat-icon" aria-hidden="true">◷</span></div></div>
+    <div class="col-sm-6"><div class="panel d-flex justify-content-between align-items-center h-100"><div><span class="eyebrow">Student satisfaction</span><div class="h4 mt-2 mb-0">{{ counts['Average rating'] }} <small class="text-secondary fs-6">/ 5</small></div></div><span class="stat-icon" aria-hidden="true">★</span></div></div>
+  </section>
+  <section class="row g-3 mb-4" aria-label="Issue analytics">
+    <div class="col-lg-4"><div class="chart-card"><h2 class="chart-title">Issues by category</h2><canvas id="category-chart" role="img" aria-label="Bar chart showing issues by category"></canvas><p class="visually-hidden">{% for label in chart_data.category_labels %}{{ label }}: {{ chart_data.category_values[loop.index0] }}. {% endfor %}</p></div></div>
+    <div class="col-lg-4"><div class="chart-card"><h2 class="chart-title">Status distribution</h2><canvas id="status-chart" role="img" aria-label="Doughnut chart showing issue statuses"></canvas><p class="visually-hidden">{% for label in chart_data.status_labels %}{{ label }}: {{ chart_data.status_values[loop.index0] }}. {% endfor %}</p></div></div>
+    <div class="col-lg-4"><div class="chart-card"><h2 class="chart-title">Reports · last 30 days</h2><canvas id="trend-chart" role="img" aria-label="Line chart showing issue reports over the last 30 days"></canvas><p class="visually-hidden">Daily report trend over the last 30 days.</p></div></div>
+  </section>
+  <section class="panel mb-4">
+    <div class="panel-heading"><div><span class="eyebrow">Capacity</span><h2 class="panel-title mt-1">Staff workload</h2></div><span class="text-secondary small">Open assignments</span></div>
+    {% if staff_roster %}
+      <div class="staff-workload">
+        {% for person in staff_roster %}
+          <div class="workload-row">
+            <span>{{ person.name }}{% if not person.is_active %}<span class="issue-meta">Inactive</span>{% elif person.department %}<span class="issue-meta">{{ person.department }}</span>{% endif %}</span>
+            <span class="workload-track" aria-label="{{ person.active_work }} active issues"><span class="workload-fill" style="width: {{ [100, person.active_work * 12]|min }}%"></span></span>
+            <strong>{{ person.active_work }}</strong>
+            <form method="post" action="{{ url_for('toggle_staff_active', staff_id=person.id) }}">
+              <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+              <button class="btn btn-sm {% if person.is_active %}btn-outline-danger{% else %}btn-outline-primary{% endif %}" type="submit">{% if person.is_active %}Deactivate{% else %}Activate{% endif %}</button>
+            </form>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}<p class="text-secondary mb-0">Add a staff member to start assigning issues.</p>{% endif %}
+  </section>
+{% else %}
+  <section class="dashboard-grid" aria-label="Your work summary">
+    {% for label, value, tone in [('Assigned tasks', counts['Total'], ''), ('Overdue', counts['Overdue'], 'tone-red')] %}
+      <article class="stat-card {{ tone }}"><div class="stat-label"><span>{{ label }}</span><span class="stat-icon" aria-hidden="true">•</span></div><strong class="stat-value">{{ value }}</strong></article>
+    {% endfor %}
+    <article class="stat-card"><div class="stat-label"><span>Next due</span><span class="stat-icon" aria-hidden="true">◷</span></div><strong class="stat-value fs-6">{{ issues[0].due_at|localtime("%d %b") if issues else '—' }}</strong></article>
+  </section>
+{% endif %}
+
+{% if current_user.role == 'admin' %}
+  <section class="panel mb-4">
+    <div class="panel-heading"><div><span class="eyebrow">Team access</span><h2 class="panel-title mt-1">Add maintenance staff</h2></div></div>
+    <form method="post" action="{{ url_for('create_staff') }}" class="row g-3 align-items-end">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+      <div class="col-sm-6 col-lg-3"><label class="form-label" for="staff-name">Full name</label><input class="form-control" id="staff-name" name="name" maxlength="100" required></div>
+      <div class="col-sm-6 col-lg-3"><label class="form-label" for="staff-email">Email</label><input class="form-control" id="staff-email" name="email" type="email" required></div>
+      <div class="col-sm-6 col-lg-2"><label class="form-label" for="staff-department">Department</label><input class="form-control" id="staff-department" name="department" maxlength="100"></div>
+      <div class="col-sm-6 col-lg-2"><label class="form-label" for="staff-password">Temporary password</label><input class="form-control" id="staff-password" name="password" type="password" minlength="8" required></div>
+      <div class="col-lg-2"><button class="btn btn-outline-primary w-100" type="submit">Add staff member</button></div>
+    </form>
+  </section>
+{% endif %}
+
+<section class="filter-panel" aria-label="Filter issues">
+  <form method="get" action="{{ url_for('dashboard') }}" class="filter-grid">
+    <div class="search-field">
+      <label class="form-label" for="search-issues">Search issues</label>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.8" cy="10.8" r="6.8"/><path d="m16 16 5 5"/></svg>
+      <input class="form-control" id="search-issues" name="q" value="{{ filters.q }}" placeholder="Ticket, title, location">
+    </div>
+    <div><label class="form-label" for="filter-status">Status</label><select class="form-select" id="filter-status" name="status"><option value="">All statuses</option>{% for status in statuses %}<option value="{{ status }}" {% if filters.status == status %}selected{% endif %}>{{ status }}</option>{% endfor %}</select></div>
+    <div><label class="form-label" for="filter-category">Category</label><select class="form-select" id="filter-category" name="category"><option value="">All categories</option>{% for category in categories %}<option value="{{ category }}" {% if filters.category == category %}selected{% endif %}>{{ category }}</option>{% endfor %}</select></div>
+    <div><label class="form-label" for="filter-priority">Priority</label><select class="form-select" id="filter-priority" name="priority"><option value="">All priorities</option>{% for priority in priorities %}<option value="{{ priority }}" {% if filters.priority == priority %}selected{% endif %}>{{ priority }}</option>{% endfor %}</select></div>
+    <div><label class="form-label" for="filter-from">From</label><input class="form-control" id="filter-from" name="date_from" type="date" value="{{ filters.date_from }}"></div>
+    <div><label class="form-label" for="filter-to">To</label><input class="form-control" id="filter-to" name="date_to" type="date" value="{{ filters.date_to }}"></div>
+    <div>
+      <label class="form-label" for="filter-sort">Sort by</label>
+      <select class="form-select" id="filter-sort" name="sort">
+        <option value="deadline" {% if filters.sort == 'deadline' %}selected{% endif %}>Urgency</option>
+        <option value="newest" {% if filters.sort == 'newest' %}selected{% endif %}>Newest first</option>
+      </select>
+    </div>
+    <div class="filters-actions"><button class="btn btn-primary btn-sm flex-grow-1" type="submit">Apply</button><a class="btn btn-light btn-sm" href="{{ url_for('dashboard') }}">Clear</a></div>
+  </form>
+</section>
+
+<section class="panel" id="issue-list">
+  <div class="panel-heading">
+    <div><span class="eyebrow">{% if current_user.role == 'staff' %}Assigned work{% elif current_user.role == 'student' %}Your requests{% else %}Operations{% endif %}</span><h2 class="panel-title mt-1">{% if current_user.role == 'staff' %}My tasks{% elif current_user.role == 'student' %}Your reported issues{% else %}All issues{% endif %}</h2></div>
+    <span class="d-flex align-items-center gap-2">
+      {% if current_user.role == 'admin' %}<a class="btn btn-sm btn-outline-primary" href="{{ url_for('export_issues') }}">Download CSV</a>{% endif %}
+      <span class="text-secondary small">{{ issues|length }} result{% if issues|length != 1 %}s{% endif %}</span>
+    </span>
+  </div>
+  {% if issues %}
+    <div class="table-responsive">
+      <table class="table data-table align-middle">
+        <thead><tr><th>Issue</th><th>Category</th>{% if current_user.role != 'student' %}<th>Reporter</th><th>Assigned to</th>{% endif %}<th>Priority</th><th>Deadline</th><th>Status</th>{% if current_user.role == 'student' %}<th>Updated</th>{% endif %}<th><span class="visually-hidden">Open</span></th></tr></thead>
+        <tbody>
+          {% for issue in issues %}
+            {% set urgency = issue|urgency %}
+            <tr class="{% if urgency == 'Overdue' %}queue-overdue{% endif %}">
+              <td><a class="issue-link" href="{{ url_for('issue_detail', issue_id=issue.id) }}">{{ issue.title }}</a><span class="issue-meta"><span class="ticket-code">{{ issue.ticket_code }}</span> · {{ issue.location or 'Location not specified' }}</span></td>
+              <td>{{ issue.category }}</td>
+              {% if current_user.role != 'student' %}<td>{{ issue.reporter }}</td><td>{{ issue.assignee or 'Unassigned' }}</td>{% endif %}
+              <td><span class="priority-badge priority-{{ issue.priority|lower }}">{{ issue.priority }}</span></td>
+              <td>
+                {% if urgency == 'Completed' %}<span class="urgency-badge urgency-completed">Completed</span>
+                {% else %}<span class="urgency-badge urgency-{{ urgency|lower|replace(' ', '-') }}" data-countdown="{{ issue.due_at }}">{{ countdown_for(issue.due_at) }}</span>{% endif %}
+                <span class="issue-meta">{{ issue.due_at|localtime("%d %b, %I:%M %p") }}</span>
+              </td>
+              <td><span class="status-badge status-{{ issue.status|lower|replace(' ', '-') }}">{{ issue.status }}</span></td>
+              {% if current_user.role == 'student' %}<td class="text-secondary small nowrap">{{ issue.updated_at|localtime("%d %b") }}</td>{% endif %}
+              <td><a class="btn btn-sm btn-light" href="{{ url_for('issue_detail', issue_id=issue.id) }}" aria-label="View {{ issue.ticket_code }}">View</a></td>
+            </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <div class="empty-state">
+      <span class="empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5h14v14H5z"/><path d="M8 9h8M8 13h5"/></svg></span>
+      <h2>{% if filters.q or filters.status or filters.category or filters.priority %}No matching issues{% elif current_user.role == 'staff' %}Your queue is clear{% elif current_user.role == 'student' %}Your first report starts here{% else %}No issues have been reported{% endif %}</h2>
+      <p>{% if current_user.role == 'student' %}Report a maintenance concern and your campus team can take it from there.{% elif current_user.role == 'staff' %}Newly assigned work will appear here, sorted by deadline.{% else %}Student reports will appear here as soon as they are submitted.{% endif %}</p>
+      {% if current_user.role == 'student' %}<a class="btn btn-primary" href="{{ url_for('new_issue') }}">Report an issue</a>{% endif %}
+    </div>
+  {% endif %}
+</section>
+{% endblock %}
+{% if current_user.role == 'admin' %}
+  {% block scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <script>
+      (() => {
+        const data = {{ chart_data|tojson }};
+        const colors = ["#176b52", "#4b8f70", "#2f67a3", "#d9a441", "#b83e44", "#7d70aa"];
+        const text = getComputedStyle(document.documentElement).getPropertyValue("--muted").trim();
+        const grid = getComputedStyle(document.documentElement).getPropertyValue("--line").trim();
+        const common = { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: text, usePointStyle: true, boxWidth: 7 } } } };
+        new Chart(document.getElementById("category-chart"), {
+          type: "bar",
+          data: { labels: data.category_labels, datasets: [{ data: data.category_values, backgroundColor: colors, borderRadius: 6 }] },
+          options: { ...common, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: text }, grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0, color: text }, grid: { color: grid } } } }
+        });
+        new Chart(document.getElementById("status-chart"), {
+          type: "doughnut",
+          data: { labels: data.status_labels, datasets: [{ data: data.status_values, backgroundColor: colors, borderWidth: 0 }] },
+          options: { ...common, cutout: "68%" }
+        });
+        new Chart(document.getElementById("trend-chart"), {
+          type: "line",
+          data: { labels: data.trend_labels, datasets: [{ data: data.trend_values, borderColor: "#176b52", backgroundColor: "rgba(23,107,82,.12)", fill: true, tension: .35, pointRadius: 1.5 }] },
+          options: { ...common, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: text, maxTicksLimit: 6 }, grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0, color: text }, grid: { color: grid } } } }
+        });
+      })();
+    </script>
+  {% endblock %}
+{% endif %}

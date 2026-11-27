@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Service settings · CampusCare{% endblock %}
+{% block content %}
+<header class="page-heading">
+  <div><span class="eyebrow">Administrator</span><h1 class="page-title">Service settings</h1><p class="page-subtitle">Configure service targets and deadline alerts for campus teams.</p></div>
+  <a class="btn btn-light" href="{{ url_for('dashboard') }}">← Dashboard</a>
+</header>
+<section class="panel">
+  <div class="panel-heading"><div><h2 class="panel-title">SLA & escalation</h2><p class="small text-secondary mt-1 mb-0">Targets are measured in hours. Existing deadlines only change when an administrator updates an issue’s priority.</p></div></div>
+  <form method="post">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="row g-3">
+      <div class="col-md-6"><label class="form-label" for="sla_high_hours">High priority response window</label><div class="input-group"><input class="form-control" id="sla_high_hours" name="sla_high_hours" type="number" min="1" max="8760" value="{{ settings.sla_high_hours }}" required><span class="input-group-text">hours</span></div></div>
+      <div class="col-md-6"><label class="form-label" for="sla_medium_hours">Medium priority response window</label><div class="input-group"><input class="form-control" id="sla_medium_hours" name="sla_medium_hours" type="number" min="1" max="8760" value="{{ settings.sla_medium_hours }}" required><span class="input-group-text">hours</span></div></div>
+      <div class="col-md-6"><label class="form-label" for="sla_low_hours">Low priority response window</label><div class="input-group"><input class="form-control" id="sla_low_hours" name="sla_low_hours" type="number" min="1" max="8760" value="{{ settings.sla_low_hours }}" required><span class="input-group-text">hours</span></div></div>
+      <div class="col-md-6"><label class="form-label" for="due_soon_hours">“Due soon” alert window</label><div class="input-group"><input class="form-control" id="due_soon_hours" name="due_soon_hours" type="number" min="1" max="8760" value="{{ settings.due_soon_hours }}" required><span class="input-group-text">hours</span></div></div>
+      <div class="col-md-6"><label class="form-label" for="auto_escalate_hours">Automatic escalation after overdue</label><div class="input-group"><input class="form-control" id="auto_escalate_hours" name="auto_escalate_hours" type="number" min="1" max="8760" value="{{ settings.auto_escalate_hours }}" required><span class="input-group-text">hours</span></div><div class="form-help">The scheduled deadline checker runs escalation once per issue.</div></div>
+    </div>
+    <div class="d-flex justify-content-end mt-4"><button class="btn btn-primary px-4" type="submit">Save settings</button></div>
+  </form>
+</section>
+{% endblock %}

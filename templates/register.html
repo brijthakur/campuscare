@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Create account · CampusCare{% endblock %}
+{% block content %}
+<section class="auth-card">
+  <div class="auth-icon" aria-hidden="true">C</div>
+  <span class="eyebrow">Student access</span>
+  <h1 class="h3 fw-bold mt-2">Create your account</h1>
+  <p>One account to report an issue and keep track of the fix.</p>
+  <form method="post" class="mt-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mb-3"><label class="form-label" for="name">Full name</label><input class="form-control" id="name" name="name" maxlength="100" autocomplete="name" required></div>
+    <div class="mb-3"><label class="form-label" for="email">College email address</label><input class="form-control" id="email" name="email" type="email" maxlength="254" autocomplete="email" required></div>
+    <div class="mb-3"><label class="form-label" for="department">Department <span class="text-secondary fw-normal">(optional)</span></label><input class="form-control" id="department" name="department" maxlength="100" autocomplete="organization"></div>
+    <div class="mb-3"><label class="form-label" for="password">Create a password</label><input class="form-control" id="password" name="password" type="password" minlength="8" autocomplete="new-password" required><div class="form-help">Use at least 8 characters.</div></div>
+    <button class="btn btn-primary w-100 py-2 mt-2" type="submit">Create account</button>
+  </form>
+  <p class="small mt-4 mb-0 text-center">Already registered? <a href="{{ url_for('login') }}">Sign in</a></p>
+</section>
+{% endblock %}

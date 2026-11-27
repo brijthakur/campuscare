@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% block title %}Report an issue · CampusCare{% endblock %}
+{% block content %}
+<div class="form-page">
+  <a class="small text-decoration-none" href="{{ url_for('dashboard') }}">← Back to dashboard</a>
+  <header class="page-heading mt-3">
+    <div><span class="eyebrow">Help us take care of campus</span><h1 class="page-title">Report an issue</h1><p class="page-subtitle">A few details help the right team find and fix the problem sooner.</p></div>
+  </header>
+  <form method="post" enctype="multipart/form-data" class="panel">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+    <div class="mb-4">
+      <label class="form-label" for="title">What needs attention?</label>
+      <input class="form-control" id="title" name="title" maxlength="150" placeholder="e.g. Lights out in the library study room" required aria-describedby="title-count">
+      <span class="character-count" id="title-count" data-count-for="title">0 / 150</span>
+    </div>
+    <div class="row g-3 mb-4">
+      <div class="col-md-6"><label class="form-label" for="category">Issue category</label><select class="form-select" id="category" name="category" required><option value="">Choose a category</option>{% for category in categories %}<option value="{{ category }}">{{ category }}</option>{% endfor %}</select></div>
+      <div class="col-md-6"><label class="form-label" for="location">Where is it?</label><input class="form-control" id="location" name="location" maxlength="150" placeholder="Building, floor, room or landmark" aria-describedby="location-help"><div class="form-help" id="location-help">A precise location helps staff find the issue quickly.</div></div>
+    </div>
+    <div class="mb-4">
+      <label class="form-label" for="description">Describe the issue</label>
+      <textarea class="form-control" id="description" name="description" rows="5" maxlength="5000" placeholder="What happened? When did you first notice it? Add any useful details." required aria-describedby="description-count"></textarea>
+      <span class="character-count" id="description-count" data-count-for="description">0 / 5000</span>
+    </div>
+    <div class="mb-4">
+      <label class="form-label" for="image">Add a photo <span class="text-secondary fw-normal">(optional)</span></label>
+      <input class="form-control" id="image" name="image" type="file" accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp" data-image-preview-input aria-describedby="image-help">
+      <div class="form-help" id="image-help">JPG, PNG or WebP · maximum 3 MB. Please avoid including people or private information.</div>
+      <div class="upload-preview" data-image-preview aria-live="polite"></div>
+    </div>
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 pt-3 border-top">
+      <p class="small text-secondary mb-0">You’ll be able to follow this report from your dashboard.</p>
+      <button class="btn btn-primary px-4 py-2" type="submit">Submit report <span aria-hidden="true">→</span></button>
+    </div>
+  </form>
+</div>
+{% endblock %}

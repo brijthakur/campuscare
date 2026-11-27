@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#153a35">
+  <title>{% block title %}CampusCare · Campus operations{% endblock %}</title>
+  <script>
+    (() => {
+      const saved = localStorage.getItem("campuscare-theme");
+      document.documentElement.dataset.theme = saved === "dark" ? "dark" : "light";
+    })();
+  </script>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="{{ url_for('static', filename='style.css') }}" rel="stylesheet">
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <nav class="navbar navbar-expand-lg app-navbar sticky-top">
+    <div class="container-xl">
+      <a class="navbar-brand brand-lockup" href="{{ url_for('index') }}" aria-label="CampusCare home">
+        <span class="brand-mark">C</span><span>CampusCare<small>ISSUE DESK</small></span>
+      </a>
+      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#mainNav" aria-label="Toggle navigation">
+        <span class="navbar-toggler-icon"></span>
+      </button>
+      <div class="collapse navbar-collapse" id="mainNav">
+        <div class="navbar-nav me-auto ms-lg-5 gap-lg-2">
+          {% if current_user %}
+            <a class="nav-link" href="{{ url_for('dashboard') }}">Overview</a>
+            {% if current_user.role == 'student' %}
+              <a class="nav-link" href="{{ url_for('new_issue') }}">Report issue</a>
+            {% endif %}
+            {% if current_user.role == 'admin' %}
+              <a class="nav-link" href="{{ url_for('export_issues') }}">Export</a>
+              <a class="nav-link" href="{{ url_for('admin_settings') }}">Settings</a>
+            {% endif %}
+          {% else %}
+            <a class="nav-link" href="{{ url_for('index') }}#how-it-works">How it works</a>
+            <a class="nav-link" href="{{ url_for('index') }}#features">Platform</a>
+          {% endif %}
+        </div>
+        <div class="navbar-nav align-items-lg-center gap-2">
+          <button class="icon-button theme-toggle" type="button" aria-label="Switch to dark mode" aria-pressed="false" title="Toggle color theme">
+            <svg class="theme-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20.2 15.1A8.4 8.4 0 0 1 8.9 3.8 8.7 8.7 0 1 0 20.2 15.1Z"/></svg>
+          </button>
+          {% if current_user %}
+            <div class="dropdown">
+              <button class="icon-button notification-button" type="button" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications, {{ notification_count.unread }} unread">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 7-3 9h18c0-2-3-2-3-9M10 21h4"/></svg>
+                {% if notification_count.unread %}<span class="notification-count">{{ notification_count.unread }}</span>{% endif %}
+              </button>
+              <div class="dropdown-menu dropdown-menu-end notification-menu">
+                <div class="notification-menu-heading"><strong>Notifications</strong><a href="{{ url_for('notifications_page') }}">View all</a></div>
+                {% for item in recent_notifications %}
+                  <a class="notification-preview {% if not item.is_read %}is-unread{% endif %}"
+                     href="{{ url_for('issue_detail', issue_id=item.issue_id) if item.issue_id else url_for('notifications_page') }}">
+                    <span class="notification-preview-dot"></span>
+                    <span><strong>{{ item.message }}</strong><small>{{ item.created_at|localtime("%d %b · %I:%M %p") }}</small></span>
+                  </a>
+                {% else %}
+                  <p class="notification-empty">You’re all caught up.</p>
+                {% endfor %}
+              </div>
+            </div>
+            <div class="dropdown user-menu">
+              <button class="user-menu-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                <span class="avatar">{{ current_user.name[:1]|upper }}</span>
+                <span class="user-menu-name">{{ current_user.name }}<small>{{ current_user.role|title }}</small></span>
+                <span class="chevron">⌄</span>
+              </button>
+              <div class="dropdown-menu dropdown-menu-end">
+                <div class="dropdown-header">{{ current_user.email }}</div>
+                <a class="dropdown-item" href="{{ url_for('notifications_page') }}">Notifications</a>
+                <form method="post" action="{{ url_for('update_notification_preferences') }}" class="px-3 py-2">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <label class="form-check form-switch mb-0">
+                    <input class="form-check-input" type="checkbox" name="notify_email" role="switch"
+                           {% if current_user.notify_email %}checked{% endif %}
+                           onchange="this.form.submit()">
+                    <span class="form-check-label small">Email notifications</span>
+                  </label>
+                </form>
+                <div class="dropdown-divider"></div>
+                <form method="post" action="{{ url_for('logout') }}" class="px-3">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button class="btn btn-sm btn-outline-secondary w-100" type="submit">Sign out</button>
+                </form>
+              </div>
+            </div>
+          {% else %}
+            <a class="nav-link" href="{{ url_for('login') }}">Sign in</a>
+            <a class="btn btn-primary btn-sm px-3" href="{{ url_for('register') }}">Report an issue</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </nav>
+  <main class="container-xl app-main">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% if messages %}
+        <div class="toast-stack" role="region" aria-label="Notifications" aria-live="polite">
+          {% for category, message in messages %}
+            {% set is_link = category == 'password-reset-link' %}
+            {% set toast_category = 'info' if is_link else category %}
+            <div class="toast app-toast show toast-{{ toast_category }}" role="{{ 'alert' if toast_category in ['danger', 'warning'] else 'status' }}">
+              <span class="toast-indicator"></span>
+              <div class="toast-body">
+                {% if category == 'password-reset-link' %}
+                  Development mode: <a class="alert-link" href="{{ message }}">reset your password</a>
+                {% else %}
+                  {{ message }}
+                {% endif %}
+              </div>
+              <button type="button" class="btn-close" data-bs-dismiss="toast" aria-label="Dismiss"></button>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="app-footer">
+    <div class="container-xl d-flex flex-wrap justify-content-between gap-2">
+      <span><strong>CampusCare</strong> · College Maintenance Issue Desk</span>
+      <span>Small fixes. Better campus days.</span>
+    </div>
+  </footer>
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="{{ url_for('static', filename='app.js') }}" defer></script>
+  {% block scripts %}{% endblock %}
+</body>
+</html>
