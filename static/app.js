@@ -90,3 +90,67 @@
     });
   }, 6000);
 })();
+
+// Notification sound
+(() => {
+  const button = document.querySelector(".notification-button");
+  if (!button) return;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  const user = document.querySelector(".user-menu .dropdown-header")?.textContent.trim() || "";
+  const key = `campuscare-unread:${user}`;
+  const readCount = (root) => Number(root.querySelector(".notification-count")?.textContent.trim() || 0);
+  let latest = readCount(document);
+  let audio;
+
+  const beep = () => {
+    [880, 1175].forEach((frequency, i) => {
+      const start = audio.currentTime + i * 0.18;
+      const tone = audio.createOscillator();
+      const volume = audio.createGain();
+      tone.frequency.value = frequency;
+      volume.gain.setValueAtTime(0.2, start);
+      volume.gain.exponentialRampToValueAtTime(0.001, start + 0.16);
+      tone.connect(volume).connect(audio.destination);
+      tone.start(start);
+      tone.stop(start + 0.17);
+    });
+  };
+
+  const check = () => {
+    const seen = Number(localStorage.getItem(key) || 0);
+    if (latest > seen) {
+      if (audio?.state !== "running") return; // wait for the first click
+      beep();
+    }
+    localStorage.setItem(key, latest);
+  };
+
+  const unlock = () => {
+    audio = audio || new AudioCtx();
+    audio.resume().then(check);
+  };
+  document.addEventListener("pointerdown", unlock);
+  document.addEventListener("keydown", unlock);
+  unlock();
+
+  window.setInterval(async () => {
+    try {
+      const response = await fetch("/notifications", { cache: "no-store" });
+      if (!response.ok) return;
+      const page = new DOMParser().parseFromString(await response.text(), "text/html");
+      if (!page.querySelector(".notification-button")) return;
+      latest = readCount(page);
+      let badge = button.querySelector(".notification-count");
+      if (latest && !badge) {
+        badge = document.createElement("span");
+        badge.className = "notification-count";
+        button.append(badge);
+      }
+      if (badge) latest ? (badge.textContent = latest) : badge.remove();
+      check();
+    } catch (error) {
+      // Offline: try again next time.
+    }
+  }, 20000);
+})();
